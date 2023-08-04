@@ -1,4 +1,7 @@
 # zwrap
+[![GoDoc](https://godoc.org/git.tcp.direct/kayos/zwrap?status.svg)](https://godoc.org/git.tcp.direct/kayos/zwrap)
+[![Go Report Card](https://goreportcard.com/badge/git.tcp.direct/kayos/zwrap)](https://goreportcard.com/report/git.tcp.direct/kayos/zwrap)
+
 
 [zwrap](https://git.tcp.direct/kayos/zwrap) is a simple compatibility wrapper around [zerolog](https://github.com/rs/zerolog) that allows for a package to use many different logging libraries _(including stdlib's `log` package)_ without having to import them directly.
 
