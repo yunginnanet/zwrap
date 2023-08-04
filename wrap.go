@@ -68,9 +68,6 @@ type Logger struct {
 func (l *Logger) SetPrefix(prefix string) {
 	l.Lock()
 	l.prefix = prefix
-	l.Logger = nil
-	nl := l.Logger.With().Str("caller", prefix).Logger()
-	l.Logger = &nl
 	l.Unlock()
 }
 
@@ -219,9 +216,22 @@ func printLn(e *zerolog.Event, v ...interface{}) {
 	strBufs.Put(strBuf)
 }
 
-func Wrap(l *zerolog.Logger) *Logger {
-	return &Logger{
-		Logger:  l,
+type prefixHook struct {
+	parent StdCompatLogger
+}
+
+func (h prefixHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
+	if h.parent.Prefix() != "" {
+		e.Str("caller", h.parent.Prefix())
+	}
+}
+
+func Wrap(l zerolog.Logger) *Logger {
+	wrapped := &Logger{
 		RWMutex: &sync.RWMutex{},
 	}
+	p := prefixHook{wrapped}
+	l = l.Hook(p)
+	wrapped.Logger = &l
+	return wrapped
 }

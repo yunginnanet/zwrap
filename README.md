@@ -48,7 +48,7 @@ func main() {
 	*/
 	
 	// The zwrap solution, wrap the logger:
-	zl := zwrap.Wrap(&logger)
+	zl := zwrap.Wrap(logger)
 	myThing.SetLogger(zl)
 	myThing.DoSomething()
 }
