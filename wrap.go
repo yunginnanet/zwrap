@@ -1,3 +1,5 @@
+// Package zwrap provides a wrapper for zerolog.Logger that implements the standard library's log.Logger methods,
+// as well as other common logging methods as an attempt to provide compatibility with other logging libraries.
 package zwrap
 
 import (
@@ -15,30 +17,7 @@ var strBufs = &sync.Pool{
 	},
 }
 
-/*
-StdCompatLogger is an interface that provides compatibility with the standard library's log.Logger.
-
-# Original methods
-
-_Note: not all methods are implemented._
-
-func Fatal(v ...interface{})
-func Fatalf(format string, v ...interface{})
-func Fatalln(v ...interface{})
-func Flags() int
-func Output(calldepth int, s string) error
-func Panic(v ...interface{})
-func Panicf(format string, v ...interface{})
-func Panicln(v ...interface{})
-func Prefix() string
-func Print(v ...interface{})
-func Printf(format string, v ...interface{})
-func Println(v ...interface{})
-func SetFlags(flag int)
-func SetOutput(w io.Writer)
-func SetPrefix(prefix string)
-func Writer() io.Writer
-*/
+// StdCompatLogger is an interface that provides compatibility with the standard library's log.Logger.
 type StdCompatLogger interface {
 	Fatal(v ...interface{})
 	Fatalf(format string, v ...interface{})
