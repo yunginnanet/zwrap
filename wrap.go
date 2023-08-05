@@ -30,6 +30,7 @@ type StdCompatLogger interface {
 	Printf(format string, v ...interface{})
 	Println(v ...interface{})
 	SetPrefix(prefix string)
+	Output(calldepth int, s string) error
 }
 
 // assert that Logger implements StdCompatLogger and that log.Logger implements StdCompatLogger
@@ -180,6 +181,22 @@ func (l *Logger) Traceln(v ...interface{}) {
 	l.RLock()
 	printLn(l.Logger.Trace(), v...)
 	l.RUnlock()
+}
+
+func (l *Logger) Output(calldepth int, s string) error {
+	l.RLock()
+	event := l.Logger.Info()
+	if calldepth != 2 {
+		if l.prefix != "" {
+			zerolog.CallerFieldName = "caller_file"
+		}
+		event.CallerSkipFrame(calldepth)
+		event = event.Caller()
+	}
+	event.Msg(s)
+	zerolog.CallerFieldName = "caller"
+	l.RUnlock()
+	return nil
 }
 
 func printLn(e *zerolog.Event, v ...interface{}) {
