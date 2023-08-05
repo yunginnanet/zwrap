@@ -41,13 +41,21 @@ var _ StdCompatLogger = &log.Logger{}
 
 type Logger struct {
 	*zerolog.Logger
-	prefix string
 	*sync.RWMutex
+
+	prefix     string
+	printLevel zerolog.Level
 }
 
 func (l *Logger) SetPrefix(prefix string) {
 	l.Lock()
 	l.prefix = prefix
+	l.Unlock()
+}
+
+func (l *Logger) SetPrintLevel(level zerolog.Level) {
+	l.Lock()
+	l.printLevel = level
 	l.Unlock()
 }
 
@@ -59,7 +67,19 @@ func (l *Logger) Prefix() string {
 
 func (l *Logger) Println(v ...interface{}) {
 	l.RLock()
-	l.Logger.Info().Msg(fmt.Sprintln(v...))
+	l.Logger.WithLevel(l.printLevel).Msg(fmt.Sprintln(v...))
+	l.RUnlock()
+}
+
+func (l *Logger) Printf(format string, v ...interface{}) {
+	l.RLock()
+	l.Logger.WithLevel(l.printLevel).Msgf(format, v...)
+	l.RUnlock()
+}
+
+func (l *Logger) Print(v ...interface{}) {
+	l.RLock()
+	l.Logger.WithLevel(l.printLevel).Msg(fmt.Sprint(v...))
 	l.RUnlock()
 }
 
@@ -224,7 +244,8 @@ func (h prefixHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
 
 func Wrap(l zerolog.Logger) *Logger {
 	wrapped := &Logger{
-		RWMutex: &sync.RWMutex{},
+		RWMutex:    &sync.RWMutex{},
+		printLevel: zerolog.InfoLevel,
 	}
 	p := prefixHook{wrapped}
 	l = l.Hook(p)
