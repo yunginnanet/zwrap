@@ -205,7 +205,7 @@ func (l *Logger) Traceln(v ...interface{}) {
 
 func (l *Logger) Verbosef(format string, v ...interface{}) {
 	l.RLock()
-	l.Logger.Debug().Msgf(format, v...)
+	l.Logger.Trace().Msgf(format, v...)
 	l.RUnlock()
 }
 
@@ -218,6 +218,13 @@ func (l *Logger) Warningf(format string, v ...interface{}) {
 	l.RLock()
 	l.Logger.Warn().Msgf(format, v...)
 	l.RUnlock()
+}
+
+func (l *Logger) Write(p []byte) (n int, err error) {
+	l.RLock()
+	l.Logger.WithLevel(l.printLevel).Msg(string(p))
+	l.RUnlock()
+	return len(p), nil
 }
 
 func (l *Logger) Output(calldepth int, s string) error {
@@ -238,11 +245,11 @@ func (l *Logger) Output(calldepth int, s string) error {
 
 func printLn(e *zerolog.Event, v ...interface{}) {
 	strBuf := strBufs.Get().(*strings.Builder)
-	for i, v := range v {
+	for i, val := range v {
 		if i > 0 {
 			strBuf.WriteString(" ")
 		}
-		strBuf.WriteString(fmt.Sprint(v))
+		strBuf.WriteString(fmt.Sprint(val))
 	}
 	e.Msg(strBuf.String())
 	strBuf.Reset()
