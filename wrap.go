@@ -203,6 +203,23 @@ func (l *Logger) Traceln(v ...interface{}) {
 	l.RUnlock()
 }
 
+func (l *Logger) Verbosef(format string, v ...interface{}) {
+	l.RLock()
+	l.Logger.Debug().Msgf(format, v...)
+	l.RUnlock()
+}
+
+func (l *Logger) Noticef(format string, v ...interface{}) {
+	l.RLock()
+	l.Logger.Info().Msgf(format, v...)
+	l.RUnlock()
+}
+func (l *Logger) Warningf(format string, v ...interface{}) {
+	l.RLock()
+	l.Logger.Warn().Msgf(format, v...)
+	l.RUnlock()
+}
+
 func (l *Logger) Output(calldepth int, s string) error {
 	l.RLock()
 	event := l.Logger.Info()
