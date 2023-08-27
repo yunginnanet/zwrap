@@ -3,6 +3,7 @@
 package zwrap
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
@@ -222,7 +223,7 @@ func (l *Logger) Warningf(format string, v ...interface{}) {
 
 func (l *Logger) Write(p []byte) (n int, err error) {
 	l.RLock()
-	l.Logger.WithLevel(l.printLevel).Msg(string(p))
+	l.Logger.WithLevel(l.printLevel).Msg(string(bytes.TrimSuffix(p, []byte("\n"))))
 	l.RUnlock()
 	return len(p), nil
 }
