@@ -68,7 +68,7 @@ func (l *Logger) Prefix() string {
 
 func (l *Logger) Println(v ...interface{}) {
 	l.RLock()
-	l.Logger.WithLevel(l.printLevel).Msg(fmt.Sprintln(v...))
+	l.Logger.WithLevel(l.printLevel).Msg(fmt.Sprint(v...))
 	l.RUnlock()
 }
 
@@ -219,6 +219,47 @@ func (l *Logger) Warningf(format string, v ...interface{}) {
 	l.RLock()
 	l.Logger.Warn().Msgf(format, v...)
 	l.RUnlock()
+}
+
+func (l *Logger) WithPrefix(prefix string) *Logger {
+	l.SetPrefix(prefix)
+	return l
+}
+
+func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
+	l.RLock()
+	nl := l.Logger.With().Fields(fields).Logger()
+	l.Logger = &nl
+	l.RUnlock()
+	return l
+}
+
+// SetLevel is compatibility for ghettovoice/gosip/log.Logger
+func (l *Logger) SetLevel(level uint32) {
+	l.Lock()
+	nl := l.Logger.Level(gosipLevelToZerologLevel(level))
+	l.Logger = &nl
+	l.Unlock()
+}
+
+func gosipLevelToZerologLevel(level uint32) zerolog.Level {
+	switch level {
+	case 0:
+		return zerolog.PanicLevel
+	case 1:
+		return zerolog.FatalLevel
+	case 2:
+		return zerolog.ErrorLevel
+	case 3:
+		return zerolog.WarnLevel
+	case 4:
+		return zerolog.InfoLevel
+	case 5:
+		return zerolog.DebugLevel
+	case 6:
+		return zerolog.TraceLevel
+	}
+	panic(fmt.Sprintf("invalid log level %d", level))
 }
 
 func (l *Logger) Write(p []byte) (n int, err error) {
