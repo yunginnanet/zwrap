@@ -79,6 +79,7 @@ func TestWrap(t *testing.T) {
 		wrapped.Tracef("%v", v)
 		wrapped.Trace(v...)
 		wrapped.Traceln(v...)
+		wrapped.Logf("%v", v)
 	}
 
 	t.Run("generic", func(t *testing.T) {

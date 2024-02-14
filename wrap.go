@@ -226,6 +226,10 @@ func (l *Logger) WithPrefix(prefix string) *Logger {
 	return l
 }
 
+func (l *Logger) Logf(format string, v ...interface{}) {
+	l.Printf(format, v...)
+}
+
 func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 	l.RLock()
 	nl := l.Logger.With().Fields(fields).Logger()
