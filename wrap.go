@@ -13,18 +13,21 @@ import (
 
 type Logger struct {
 	*zerolog.Logger
-	*sync.RWMutex
+	mu *sync.RWMutex
 
 	prefix     string
 	printLevel zerolog.Level
+	forceLevel *zerolog.Level
+	noPanic    bool
+	noFatal    bool
 }
 
 func (l *Logger) Warning(args ...any) {
-	l.Logger.Warn().Msg(fmt.Sprint(args...))
+	l.printLn(l.Logger.Warn(), false, args...)
 }
 
 func (l *Logger) Warningln(args ...any) {
-	l.Logger.Warn().Msg(fmt.Sprintln(args...))
+	l.printLn(l.Logger.Warn(), false, args...)
 }
 
 func (l *Logger) V(level int) bool {
@@ -38,176 +41,226 @@ func (l *Logger) V(level int) bool {
 }
 
 func (l *Logger) SetPrefix(prefix string) {
-	l.Lock()
+	l.mu.Lock()
 	l.prefix = prefix
-	l.Unlock()
+	l.mu.Unlock()
 }
 
 func (l *Logger) SetPrintLevel(level zerolog.Level) {
-	l.Lock()
+	l.mu.Lock()
 	l.printLevel = level
-	l.Unlock()
+	l.mu.Unlock()
 }
 
 func (l *Logger) Prefix() string {
-	l.RLock()
-	defer l.RUnlock()
+	l.mu.RLock()
+	p := l.myPrefix()
+	l.mu.RUnlock()
+	return p
+}
+
+func (l *Logger) myPrefix() string {
 	return l.prefix
 }
 
 func (l *Logger) Println(v ...interface{}) {
-	l.RLock()
-	l.Logger.WithLevel(l.printLevel).Msg(fmt.Sprint(v...))
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.WithLevel(l.printLevel), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Printf(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.WithLevel(l.printLevel).Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	var str string
+	switch {
+	case len(v) == 0:
+		str = format
+	case len(v) == 1:
+		str = fmt.Sprintf(format, v[0])
+	default:
+		str = fmt.Sprintf(format, v...)
+	}
+	l.printLn(l.Logger.WithLevel(l.printLevel), false, str)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Print(v ...interface{}) {
-	l.RLock()
-	l.Logger.WithLevel(l.printLevel).Msg(fmt.Sprint(v...))
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.WithLevel(l.printLevel), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Fatal(v ...interface{}) {
-	// Don't check mutex here because we're exiting anyway.
-	printLn(l.Logger.Fatal(), v...)
+	var ok bool
+	if _, v, ok = l.checkFatalBypass("", v...); ok {
+		l.printLn(l.Logger.Fatal(), true, v...)
+		return
+	}
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
-	// Don't check mutex here because we're exiting anyway.
-	l.Logger.Fatal().Msgf(format, v...)
+	var ok bool
+	if format, v, ok = l.checkFatalBypass(format, v...); ok {
+		l.printLn(l.Logger.Fatal(), true, fmt.Sprintf(format, v...))
+		return
+	}
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Fatalln(v ...interface{}) {
-	// Don't check mutex here because we're exiting anyway.
-	printLn(l.Logger.Fatal(), v...)
+	var ok bool
+	if _, v, ok = l.checkFatalBypass("", v...); ok {
+		l.printLn(l.Logger.Fatal(), true, v...)
+		return
+	}
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Panic(v ...interface{}) {
-	// Don't check mutex here because we're panicking anyway.
-	printLn(l.Logger.Panic(), v...)
+	var ok bool
+	if _, v, ok = l.checkPanicBypass("", v...); ok {
+		l.printLn(l.Logger.Panic(), true, v...)
+		return
+	}
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Panicf(format string, v ...interface{}) {
-	// Don't check mutex here because we're panicking anyway.
-	l.Logger.Panic().Msgf(format, v...)
+	var ok bool
+	if format, v, ok = l.checkPanicBypass(format, v...); ok {
+		l.printLn(l.Logger.Panic(), true, fmt.Sprintf(format, v...))
+		return
+	}
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Panicln(v ...interface{}) {
-	// Don't check mutex here because we're panicking anyway.
-	printLn(l.Logger.Panic(), v...)
+	var ok bool
+	if _, v, ok = l.checkPanicBypass("", v...); ok {
+		l.printLn(l.Logger.Panic(), true, v...)
+		return
+	}
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Errorf(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Error().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Warn().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Warn(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Infof(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Info().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Info(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Debug().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Debug(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Tracef(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Trace().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Trace(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Error(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Error(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Warn(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Warn(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Warn(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Info(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Info(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Info(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Debug(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Debug(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Debug(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Trace(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Trace(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Trace(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Errorln(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Error(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Error(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Warnln(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Warn(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Warn(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Infoln(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Info(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Info(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Debugln(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Debug(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Debug(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Traceln(v ...interface{}) {
-	l.RLock()
-	printLn(l.Logger.Trace(), v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Trace(), false, v...)
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Verbosef(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Trace().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Trace(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) Noticef(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Info().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Info(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 func (l *Logger) Warningf(format string, v ...interface{}) {
-	l.RLock()
-	l.Logger.Warn().Msgf(format, v...)
-	l.RUnlock()
+	l.mu.RLock()
+	l.printLn(l.Logger.Warn(), false, fmt.Sprintf(format, v...))
+	l.mu.RUnlock()
 }
 
 func (l *Logger) WithPrefix(prefix string) *Logger {
@@ -220,50 +273,30 @@ func (l *Logger) Logf(format string, v ...interface{}) {
 }
 
 func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
-	l.RLock()
+	l.mu.RLock()
 	nl := l.Logger.With().Fields(fields).Logger()
 	l.Logger = &nl
-	l.RUnlock()
+	l.mu.RUnlock()
 	return l
 }
 
 // SetLevel is compatibility for ghettovoice/gosip/log.Logger
-func (l *Logger) SetLevel(level uint32) {
-	l.Lock()
-	nl := l.Logger.Level(gosipLevelToZerologLevel(level))
+func (l *Logger) SetLevel(level any) {
+	l.mu.Lock()
+	nl := l.Logger.Level(castToZlogLevel(level))
 	l.Logger = &nl
-	l.Unlock()
-}
-
-func gosipLevelToZerologLevel(level uint32) zerolog.Level {
-	switch level {
-	case 0:
-		return zerolog.PanicLevel
-	case 1:
-		return zerolog.FatalLevel
-	case 2:
-		return zerolog.ErrorLevel
-	case 3:
-		return zerolog.WarnLevel
-	case 4:
-		return zerolog.InfoLevel
-	case 5:
-		return zerolog.DebugLevel
-	case 6:
-		return zerolog.TraceLevel
-	}
-	panic(fmt.Sprintf("invalid log level %d", level))
+	l.mu.Unlock()
 }
 
 func (l *Logger) Write(p []byte) (n int, err error) {
-	l.RLock()
+	l.mu.RLock()
 	l.Logger.WithLevel(l.printLevel).Msg(string(bytes.TrimSuffix(p, []byte("\n"))))
-	l.RUnlock()
+	l.mu.RUnlock()
 	return len(p), nil
 }
 
 func (l *Logger) Output(calldepth int, s string) error {
-	l.RLock()
+	l.mu.RLock()
 	event := l.Logger.Info()
 	if calldepth != 2 {
 		if l.prefix != "" {
@@ -274,11 +307,48 @@ func (l *Logger) Output(calldepth int, s string) error {
 	}
 	event.Msg(s)
 	zerolog.CallerFieldName = "caller"
-	l.RUnlock()
+	l.mu.RUnlock()
 	return nil
 }
 
-func printLn(e *zerolog.Event, v ...interface{}) {
+func (l *Logger) transformZEvent(e *zerolog.Event) *zerolog.Event {
+	switch *l.forceLevel {
+	case zerolog.PanicLevel:
+		if !l.noPanic {
+			e = l.Logger.Panic()
+		}
+	case zerolog.FatalLevel:
+		if !l.noFatal {
+			e = l.Logger.Fatal()
+		}
+	case zerolog.ErrorLevel:
+		e = l.Logger.Error()
+	case zerolog.WarnLevel:
+		e = l.Logger.Warn()
+	case zerolog.InfoLevel:
+		e = l.Logger.Info()
+	case zerolog.DebugLevel:
+		e = l.Logger.Debug()
+	case zerolog.TraceLevel:
+		e = l.Logger.Trace()
+	default:
+		panic(fmt.Sprintf("invalid logger config, bad force level %v", l.forceLevel))
+	}
+	return e
+}
+
+func (l *Logger) printLn(e *zerolog.Event, preserve bool, v ...interface{}) {
+	if l.forceLevel != nil && !preserve {
+		e = l.transformZEvent(e)
+	}
+	if len(v) == 0 {
+		e.Msg("")
+		return
+	}
+	if len(v) == 1 {
+		e.Msg(fmt.Sprint(v[0]))
+		return
+	}
 	strBuf := strBufs.Get().(*strings.Builder)
 	for i, val := range v {
 		if i > 0 {
@@ -292,18 +362,18 @@ func printLn(e *zerolog.Event, v ...interface{}) {
 }
 
 type prefixHook struct {
-	parent StdCompatLogger
+	parent *Logger
 }
 
 func (h prefixHook) Run(e *zerolog.Event, _ zerolog.Level, _ string) {
 	if h.parent.Prefix() != "" {
-		e.Str("caller", h.parent.Prefix())
+		e.Str("caller", h.parent.myPrefix())
 	}
 }
 
 func Wrap(l zerolog.Logger) *Logger {
 	wrapped := &Logger{
-		RWMutex:    &sync.RWMutex{},
+		mu:         &sync.RWMutex{},
 		printLevel: zerolog.InfoLevel,
 	}
 	p := prefixHook{wrapped}
