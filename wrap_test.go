@@ -80,6 +80,12 @@ func TestWrap(t *testing.T) {
 		wrapped.Trace(v...)
 		wrapped.Traceln(v...)
 		wrapped.Logf("%v", v)
+		wrapped.Warning("%v", v)
+		wrapped.Warningf("%v", v)
+	}
+
+	if wrapped.V(0) {
+		t.Error("V(0) should always return false")
 	}
 
 	t.Run("generic", func(t *testing.T) {

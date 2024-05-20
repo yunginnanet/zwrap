@@ -5,40 +5,11 @@ package zwrap
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
 	"github.com/rs/zerolog"
 )
-
-var strBufs = &sync.Pool{
-	New: func() interface{} {
-		return new(strings.Builder)
-	},
-}
-
-// StdCompatLogger is an interface that provides compatibility with the standard library's log.Logger.
-type StdCompatLogger interface {
-	Fatal(v ...interface{})
-	Fatalf(format string, v ...interface{})
-	Fatalln(v ...interface{})
-	Panic(v ...interface{})
-	Panicf(format string, v ...interface{})
-	Panicln(v ...interface{})
-	Prefix() string
-	Print(v ...interface{})
-	Printf(format string, v ...interface{})
-	Println(v ...interface{})
-	SetPrefix(prefix string)
-	Output(calldepth int, s string) error
-}
-
-// assert that Logger implements StdCompatLogger and that log.Logger implements StdCompatLogger
-var _ StdCompatLogger = &Logger{}
-var _ StdCompatLogger = &log.Logger{}
-
-// ----------------------------------------------------
 
 type Logger struct {
 	*zerolog.Logger
@@ -46,6 +17,24 @@ type Logger struct {
 
 	prefix     string
 	printLevel zerolog.Level
+}
+
+func (l *Logger) Warning(args ...any) {
+	l.Logger.Warn().Msg(fmt.Sprint(args...))
+}
+
+func (l *Logger) Warningln(args ...any) {
+	l.Logger.Warn().Msg(fmt.Sprintln(args...))
+}
+
+func (l *Logger) V(level int) bool {
+	if level > 127 || level < 0 {
+		return false
+	}
+	if l.Logger.GetLevel() > zerolog.Level(int8(level)) {
+		return true
+	}
+	return false
 }
 
 func (l *Logger) SetPrefix(prefix string) {
