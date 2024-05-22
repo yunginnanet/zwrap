@@ -66,7 +66,7 @@ func (l *Logger) ForceLevel(level any) {
 	l.mu.Unlock()
 }
 
-func (l *Logger) WithForceLevel(level uint32) *Logger {
+func (l *Logger) WithForceLevel(level any) *Logger {
 	l.ForceLevel(level)
 	return l
 }
