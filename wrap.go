@@ -39,7 +39,7 @@ func (l *Logger) updateCachedZL() {
 		l.cachedZL = &ll
 	}
 	if l.prefix != "" {
-		ll := l.cachedZL.With().Str("prefix", l.prefix).Logger()
+		ll := l.cachedZL.With().Str("caller", l.prefix).Logger()
 		l.cachedZL = &ll
 	}
 	l.mu.Unlock()
