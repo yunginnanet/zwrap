@@ -13,13 +13,49 @@ import (
 
 type Logger struct {
 	*zerolog.Logger
-	mu *sync.RWMutex
+	cachedZL *zerolog.Logger
+	mu       *sync.RWMutex
 
 	prefix     string
 	printLevel zerolog.Level
 	forceLevel *zerolog.Level
 	noPanic    bool
 	noFatal    bool
+}
+
+func (l *Logger) updateCachedZL() {
+
+	l.mu.RLock()
+	if l.cachedZL == nil {
+		l.mu.RUnlock()
+		return
+	}
+	l.mu.RUnlock()
+
+	l.mu.Lock()
+	l.cachedZL = l.Logger
+	if l.forceLevel != nil {
+		ll := l.cachedZL.Level(*l.forceLevel)
+		l.cachedZL = &ll
+	}
+	if l.prefix != "" {
+		ll := l.cachedZL.With().Str("prefix", l.prefix).Logger()
+		l.cachedZL = &ll
+	}
+	l.mu.Unlock()
+}
+
+func (l *Logger) ZLogger() *zerolog.Logger {
+	l.mu.RLock()
+	if l.cachedZL != nil {
+		zl := l.cachedZL
+		l.mu.RUnlock()
+		return zl
+	}
+	l.mu.RUnlock()
+	l.cachedZL = &zerolog.Logger{}
+	l.updateCachedZL()
+	return l.cachedZL
 }
 
 func (l *Logger) Warning(args ...any) {
@@ -44,12 +80,14 @@ func (l *Logger) SetPrefix(prefix string) {
 	l.mu.Lock()
 	l.prefix = prefix
 	l.mu.Unlock()
+	l.updateCachedZL()
 }
 
 func (l *Logger) SetPrintLevel(level zerolog.Level) {
 	l.mu.Lock()
 	l.printLevel = level
 	l.mu.Unlock()
+	l.updateCachedZL()
 }
 
 func (l *Logger) Prefix() string {
@@ -286,6 +324,7 @@ func (l *Logger) SetLevel(level any) {
 	nl := l.Logger.Level(castToZlogLevel(level))
 	l.Logger = &nl
 	l.mu.Unlock()
+	l.updateCachedZL()
 }
 
 func (l *Logger) Write(p []byte) (n int, err error) {

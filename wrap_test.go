@@ -312,6 +312,12 @@ func TestWrap(t *testing.T) {
 
 }
 
+func TestLogger_ZLogger(t *testing.T) {
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	zl := Wrap(logger)
+	zl.ZLogger().Debug().Msg("yeet")
+}
+
 func ExampleWrap() {
 	// Create a new zerolog.Logger
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
