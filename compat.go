@@ -32,8 +32,14 @@ type GRPCCompatLogger interface {
 	V(l int) bool
 }
 
+type ZWrapLogger interface {
+	StdCompatLogger
+	GRPCCompatLogger
+}
+
 // assert that Logger implements StdCompatLogger and GRPCCompatLogger.
 var (
 	_ StdCompatLogger  = &Logger{}
 	_ GRPCCompatLogger = &Logger{}
+	_ ZWrapLogger      = &Logger{}
 )
